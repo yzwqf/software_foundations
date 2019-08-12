@@ -744,3 +744,174 @@ Proof.
   - apply eqb_true.
   - intros H. rewrite H. rewrite <- eqb_refl. reflexivity.
 Qed.
+
+(* Proof by reflection. examples *)
+Example even_1000 : exists k, 1000 = double k.
+Proof. exists 500. reflexivity. Qed.
+Example even_1000' : evenb 1000 = true.
+Proof. reflexivity. Qed.
+(* What is interesting is that, since the 
+   two notions are equivalent, we can use 
+   the boolean formulation to prove the 
+   other one without mentioning the value 
+   500 explicitly: 
+ *)
+Example even_1000'' : exists k, 1000 = double k.
+Proof. apply even_bool_prop. reflexivity. Qed.
+
+Example not_even_1001 : evenb 1001 = false.
+Proof.
+  (* WORKED IN CLASS *)
+  reflexivity.
+Qed.
+
+Example not_even_1001' : 
+  ~ (exists k, 1001 = double k).
+Proof.
+  (* WORKED IN CLASS *)
+  rewrite <- even_bool_prop.
+  unfold not.
+  simpl.
+  intro H.
+  discriminate H.
+Qed.
+
+Lemma plus_eqb_example : forall n m p : nat,
+    n =? m = true -> n + p =? m + p = true.
+Proof.
+  intros n m p H.
+  rewrite eqb_eq in H.
+  rewrite H.
+  rewrite eqb_eq.
+  reflexivity.
+Qed.
+
+Notation "x && y" := (andb x y).
+Notation "x || y" := (orb x y).
+
+Lemma andb_true_iff : forall b1 b2:bool,
+  b1 && b2 = true <-> b1 = true /\ b2 = true.
+Proof.
+  intros. split.
+  - unfold andb. intros H. destruct b1.
+    + split. reflexivity. apply H.
+    + discriminate H.
+  - intros H. destruct H as [H1 H2].
+    unfold andb. rewrite H1. simpl. 
+    apply H2. 
+Qed.
+
+Lemma orb_true_iff : forall b1 b2,
+  b1 || b2 = true <-> b1 = true \/ b2 = true.
+Proof.
+  intros. split.
+  - unfold orb. intros H. destruct b1.
+    left. reflexivity. right. apply H.
+  - intros H. unfold orb. 
+    destruct H as [H1 | H2].
+    + rewrite H1. simpl. reflexivity.
+    + destruct b1. reflexivity. apply H2.
+Qed.
+
+Theorem eqb_false : forall n m,
+  n =? m = false -> n <> m.
+Proof. Admitted.
+
+(*
+Theorem eqb_neq : forall x y : nat,
+  x =? y = false <-> x <> y.
+Proof.
+  intros. split.
+  - apply eqb_false.
+  - unfold not. intros H. 
+Qed.
+*)
+
+Fixpoint eqb_list {A : Type} 
+  (eqb : A -> A -> bool) (l1 l2 : list A) : bool :=
+  match l1, l2 with
+  | _ , [] => false
+  | [] , _ => false
+  | (h1 :: t1) , (h2 :: t2) =>
+    if (eqb h1 h2) then (eqb_list eqb t1 t2)
+      else false
+  end.
+
+(*
+Lemma eqb_list_true_iff :
+  forall A (eqb : A -> A -> bool),
+    (forall a1 a2, eqb a1 a2 = true <-> a1 = a2) ->
+    forall l1 l2, eqb_list eqb l1 l2 = true <-> l1 = l2.
+Proof.
+  intros. split.
+*)
+
+Fixpoint forallb {X : Type} (test : X -> bool) (l : list X) : bool :=
+  match l with
+  | [] => true
+  | x :: l' => andb (test x) (forallb test l')
+  end.
+
+Theorem forallb_true_iff : forall X test (l : list X),
+   forallb test l = true <-> All (fun x => test x = true) l.
+Proof.
+  intros. split.
+  - induction l as [|h t IHt].
+    simpl. reflexivity. simpl. intros H. 
+    apply andb_true_iff in H.
+    destruct H as [H0 H1]. split. 
+    apply H0. apply IHt. apply H1.
+  - induction l as [|h t IHt].
+    simpl. reflexivity. simpl. intros [H0 H1].
+    rewrite H0. simpl. apply IHt. apply H1. 
+Qed.
+
+Theorem restricted_excluded_middle : forall P b,
+  (P <-> b = true) -> P \/ ~ P.
+Proof.
+  intros P [] H.
+  - left. rewrite H. reflexivity.
+  - right. rewrite H. intros contra. discriminate contra.
+Qed.
+
+Theorem restricted_excluded_middle_eq : forall (n m : nat),
+  n = m \/ n <> m.
+Proof.
+  intros n m.
+  apply (restricted_excluded_middle (n = m) (n =? m)).
+  symmetry.
+  apply eqb_eq.
+Qed.
+
+Definition excluded_middle := forall P : Prop,
+  P \/ ~ P.
+
+(*
+Theorem not_exists_dist :
+  excluded_middle -> 
+    forall (X:Type) (P : X -> Prop), 
+      ~ (exists x, ~ P x) -> (forall x, P x).
+Proof.
+  unfold excluded_middle. unfold not.
+  intros. 
+Qed.
+
+Theorem excluded_middle_irrefutable: forall (P:Prop),
+  ~ ~ (P \/ ~ P).
+Proof.
+  intros. unfold not. intros H.
+  apply H. 
+Qed.
+*)
+
+Definition peirce := forall P Q: Prop,
+  ((P -> Q) -> P) -> P.
+
+Definition double_negation_elimination := forall P:Prop,
+  ~ ~ P -> P.
+
+Definition de_morgan_not_and_not := forall P Q:Prop,
+  ~ (~ P /\ ~ Q) -> P \/ Q.
+
+Definition implies_to_or := forall P Q:Prop,
+  (P -> Q) -> (~ P \/ Q).
